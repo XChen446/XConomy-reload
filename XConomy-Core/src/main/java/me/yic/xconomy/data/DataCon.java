@@ -76,9 +76,6 @@ public class DataCon {
         if (pd == null){
             pd = DataLink.getPlayerData(u);
         }
-        if (AdapterManager.PLUGIN.getOnlinePlayersisEmpty()) {
-            Cache.clearCache();
-        }
         return pd;
     }
 

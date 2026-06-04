@@ -101,13 +101,28 @@ public class SQLCreateNewAccount extends SQL {
             ResultSet rs = statement.executeQuery();
             if (rs.next()) {
                 String oldname = rs.getString(2);
+                BigDecimal cacheThisAmt = DataFormat.formatString(rs.getString(3));
+                // 写入缓存，确保玩家登录后立即可被查找到
+                UUID parsedUid = UUID.fromString(uid);
+                String cachedName = name;
                 if (!name.equals(oldname)) {
                     updateUser(uid, name, connection);
-                    syncOnlineUUID(oldname, name, UUID.fromString(uid));
+                    syncOnlineUUID(oldname, name, parsedUid);
                     XConomy.getInstance().logger(" 名称已更改!", 0, "<#>" + name);
+                } else {
+                    cachedName = oldname;
+                }
+                if (cacheThisAmt != null) {
+                    PlayerData bd = new PlayerData(parsedUid, cachedName, cacheThisAmt);
+                    Cache.insertIntoCache(parsedUid, bd);
                 }
             } else {
                 createPlayerAccount(uid, name, connection);
+                // 新建账号后立即写入缓存，避免登录后指令竞态
+                BigDecimal initialBal = ImportData.getBalance(name, XConomyLoad.Config.INITIAL_BAL);
+                UUID parsedUid = UUID.fromString(uid);
+                PlayerData bd = new PlayerData(parsedUid, name, initialBal);
+                Cache.insertIntoCache(parsedUid, bd);
             }
 
             rs.close();
@@ -262,6 +277,12 @@ public class SQLCreateNewAccount extends SQL {
             } else {
                 user = name;
                 createPlayerAccount(UID.toString(), user, connection);
+                // 新建账号后立即写入缓存，避免登录后指令竞态
+                BigDecimal initialBal = ImportData.getBalance(user, XConomyLoad.Config.INITIAL_BAL);
+                if (!XConomyLoad.Config.UUIDMODE.equals(UUIDMode.SEMIONLINE)) {
+                    PlayerData bd = new PlayerData(UID, user, initialBal);
+                    Cache.insertIntoCache(UID, bd);
+                }
             }
             rs.close();
             statement.close();
