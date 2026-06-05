@@ -202,7 +202,20 @@ public class CommandTrack extends CommandCore {
         String time = dateFormat.get().format(record.getDatetime());
         String amount = DataFormat.shown(record.getAmount());
         String otherParty = "N/A";
-        String type = getTransactionTypeDisplay(record.getTransactionType(), record.getCommand());
+        String typeBase = getTransactionTypeDisplay(record.getTransactionType(), record.getCommand());
+
+        // 如果有原因（comment 字段），在类型后附加原因
+        String comment = record.getComment();
+        String type;
+        if (comment != null && !comment.isEmpty()
+                && !comment.equalsIgnoreCase("null")
+                && !comment.equalsIgnoreCase("N/A")) {
+            type = translateColorCodes("track_type_with_reason")
+                    .replace("%type%", typeBase)
+                    .replace("%reason%", comment);
+        } else {
+            type = typeBase;
+        }
 
         if (trackType.equals("income")) {
             if (record.getFromUid() != null) {
@@ -211,7 +224,6 @@ public class CommandTrack extends CommandCore {
                     otherParty = fromPlayer.getName();
                 }
             } else {
-                // For admin commands, extract sender name from command field ([SenderName] ...)
                 String txType = record.getTransactionType();
                 if (txType != null && txType.startsWith("ADMIN_")) {
                     otherParty = extractSenderFromCommand(record.getCommand());

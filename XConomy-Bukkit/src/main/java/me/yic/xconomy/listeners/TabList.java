@@ -22,6 +22,7 @@ import me.yic.xconomy.XConomyLoad;
 import me.yic.xconomy.data.DataCon;
 import me.yic.xconomy.data.syncdata.PlayerData;
 import me.yic.xconomy.data.tracking.TrackPageCache;
+import me.yic.xconomy.lang.MessagesManager;
 import me.yic.xconomy.utils.TabListCon;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -174,42 +175,96 @@ public class TabList implements TabCompleter {
             case "balance":
             case "economy":
             case "eco": {
+                boolean canGive = commandSender.isOp() || commandSender.hasPermission("xconomy.admin.give");
+                boolean canTake = commandSender.isOp() || commandSender.hasPermission("xconomy.admin.take");
+                boolean canSet  = commandSender.isOp() || commandSender.hasPermission("xconomy.admin.set");
+                boolean canAdmin = canGive || canTake || canSet;
+                boolean canViewOther = commandSender.isOp() || commandSender.hasPermission("xconomy.user.balance.other");
+
                 if (args.length == 1) {
-                    List<String> COMMANDS_balance = new ArrayList<>();
-                    if (commandSender.isOp() || commandSender.hasPermission("xconomy.user.balance.other")) {
-                        COMMANDS_balance.addAll(TabListCon.get_Tab_PlayerList());
-                    }
-                    if (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.give")) {
-                        COMMANDS_balance.add("give");
-                    }
-                    if (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.take")) {
-                        COMMANDS_balance.add("take");
-                    }
-                    if (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.set")) {
-                        COMMANDS_balance.add("set");
-                    }
-                    StringUtil.copyPartialMatches(args[0], COMMANDS_balance, completions);
+                    // /money <?>
+                    List<String> candidates = new ArrayList<>();
+                    if (canViewOther) candidates.addAll(TabListCon.get_Tab_PlayerList());
+                    if (canGive) candidates.add("give");
+                    if (canTake) candidates.add("take");
+                    if (canSet)  candidates.add("set");
+                    StringUtil.copyPartialMatches(args[0], candidates, completions);
+
                 } else if (args.length == 2) {
-                    if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take")
-                            || args[0].equalsIgnoreCase("set")) {
-                        if (commandSender.isOp() || commandSender.hasPermission("xconomy.user.balance.other")
-                                || commandSender.hasPermission("xconomy.admin.give") || commandSender.hasPermission("xconomy.admin.take")
-                                || commandSender.hasPermission("xconomy.admin.set")) {
-                            StringUtil.copyPartialMatches(args[1], TabListCon.get_Tab_PlayerList(), completions);
+                    // /money <sub> <?>
+                    String sub = args[0].toLowerCase();
+                    if (sub.equals("give") || sub.equals("take") || sub.equals("set")) {
+                        if (canAdmin) {
+                            // 玩家名 + 通配符 *
+                            List<String> players = new ArrayList<>(TabListCon.get_Tab_PlayerList());
+                            players.add("*");
+                            StringUtil.copyPartialMatches(args[1], players, completions);
                         }
                     }
+
                 } else if (args.length == 3) {
-                    if (args[1].equals("*")) {
-                        if (commandSender.isOp() || commandSender.hasPermission("xconomy.user.balance.other")
-                                || commandSender.hasPermission("xconomy.admin.give") || commandSender.hasPermission("xconomy.admin.take")
-                                || commandSender.hasPermission("xconomy.admin.set")) {
-                            List<String> COMMANDS_balance_all = new ArrayList<>();
-                            COMMANDS_balance_all.add("all");
-                            COMMANDS_balance_all.add("online");
-                            StringUtil.copyPartialMatches(args[2], COMMANDS_balance_all, completions);
+                    // /money <sub> <玩家/*> <?>
+                    String sub = args[0].toLowerCase();
+                    if (sub.equals("give") || sub.equals("take") || sub.equals("set")) {
+                        if (canAdmin) {
+                            if (args[1].equals("*")) {
+                                // /money give * <all/online>
+                                StringUtil.copyPartialMatches(args[2],
+                                        java.util.Arrays.asList("all", "online"), completions);
+                            } else {
+                                // /money give <玩家> <金额>，提示占位
+                                if (args[2].isEmpty()) {
+                                    String hint = MessagesManager.messageFile.getString("tab_amount");
+                                    completions.add(hint != null ? hint : "<amount>");
+                                }
+                            }
                         }
+                    }
+
+                } else if (args.length == 4) {
+                    // /money <sub> <玩家> <金额> <?>  或  /money <sub> * <all/online> <金额>
+                    String sub = args[0].toLowerCase();
+                    if (sub.equals("give") || sub.equals("take") || sub.equals("set")) {
+                        if (canAdmin) {
+                            if (args[1].equals("*")) {
+                                // /money give * all/online <金额>
+                                if (args[3].isEmpty()) {
+                                    String hint = MessagesManager.messageFile.getString("tab_amount");
+                                    completions.add(hint != null ? hint : "<amount>");
+                                }
+                            } else {
+                                // /money give <玩家> <金额> <flag|-r>
+                                // 开始 flag 补全（首个 flag 位置）
+                                List<String> FLAGS = new ArrayList<>();
+                                FLAGS.add("-s");
+                                FLAGS.add("-q");
+                                FLAGS.add("-r");
+                                StringUtil.copyPartialMatches(args[3], FLAGS, completions);
+                            }
+                        }
+                    }
+
+                } else if (args.length == 5) {
+                    // /money give * all/online <金额> <原因>
+                    // 或 /money give <玩家> <金额> <flag> <?>
+                    String sub = args[0].toLowerCase();
+                    if ((sub.equals("give") || sub.equals("take") || sub.equals("set")) && canAdmin) {
+                        if (args[1].equals("*")) {
+                            // /money give * all/online <金额> <原因> — 原因自由输入，不补全
+                        } else {
+                            // flag 区继续补全
+                            completeFlagsAt(args, 3, completions);
+                        }
+                    }
+
+                } else if (args.length >= 6) {
+                    String sub = args[0].toLowerCase();
+                    if ((sub.equals("give") || sub.equals("take") || sub.equals("set"))
+                            && canAdmin && !args[1].equals("*")) {
+                        completeFlagsAt(args, 3, completions);
                     }
                 }
+
                 Collections.sort(completions);
                 break;
             }
@@ -224,5 +279,41 @@ public class TabList implements TabCompleter {
             pages.add(String.valueOf(i));
         }
         return pages;
+    }
+
+    /**
+     * 在 flag 区（从 flagStart 到末尾）进行 flag 补全。
+     * 识别 -r 的值区间（遇到已知 flag 才终止），避免把原因词当 flag 处理。
+     */
+    private static void completeFlagsAt(String[] args, int flagStart, List<String> completions) {
+        java.util.Set<String> KNOWN_FLAGS = new java.util.HashSet<>(
+                java.util.Arrays.asList("-s", "-q", "-r"));
+        java.util.Set<String> usedFlags = new java.util.HashSet<>();
+        boolean inReason = false;
+
+        // 扫描已确定的 flag 区（不含正在输入的最后一个词）
+        for (int fi = flagStart; fi < args.length - 1; fi++) {
+            String tok = args[fi].toLowerCase();
+            if (inReason) {
+                if (KNOWN_FLAGS.contains(tok)) {
+                    inReason = false;
+                    usedFlags.add(tok);
+                    if (tok.equals("-r")) inReason = true;
+                }
+            } else if (KNOWN_FLAGS.contains(tok)) {
+                usedFlags.add(tok);
+                if (tok.equals("-r")) inReason = true;
+            }
+        }
+
+        if (!inReason) {
+            String current = args[args.length - 1];
+            List<String> FLAGS = new ArrayList<>();
+            if (!usedFlags.contains("-s") && !usedFlags.contains("-q")) FLAGS.add("-s");
+            if (!usedFlags.contains("-q") && !usedFlags.contains("-s")) FLAGS.add("-q");
+            if (!usedFlags.contains("-r")) FLAGS.add("-r");
+            StringUtil.copyPartialMatches(current, FLAGS, completions);
+        }
+        // inReason == true：正在输入 -r 的原因内容，不提示 flag
     }
 }

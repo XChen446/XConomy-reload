@@ -33,12 +33,86 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public class CommandBalance extends CommandCore{
-    public static boolean onCommand(CSender sender, String commandName, String[] args) {
+
+    /**
+     * 从原始 args 中提取 flag 参数，返回去除 flag 后的纯位置参数列表。
+     * 支持的 flag：
+     *   -s  静默给予（不给目标玩家发消息）
+     *   -q  后台静默（执行者和目标都不发消息，适合脚本）
+     *   -r <原因...>  写入原因（-r 之后的所有词拼成原因）
+     */
+    private static class ParsedArgs {
+        final String[] positional; // 去掉 flag 后的位置参数
+        final boolean silent;      // -s
+        final boolean quiet;       // -q
+        final String reason;       // -r 后面的文字，null 表示未指定
+
+        ParsedArgs(String[] positional, boolean silent, boolean quiet, String reason) {
+            this.positional = positional;
+            this.silent = silent;
+            this.quiet = quiet;
+            this.reason = reason;
+        }
+    }
+
+    static ParsedArgs parseArgs(String[] args) {
+        java.util.List<String> pos = new java.util.ArrayList<>();
+        boolean silent = false;
+        boolean quiet  = false;
+        StringBuilder reason = null;
+
+        // 已知的 flag 集合，用于判断 -r 的终止边界
+        java.util.Set<String> KNOWN_FLAGS = new java.util.HashSet<>(
+                java.util.Arrays.asList("-s", "-q", "-r"));
+
+        for (int i = 0; i < args.length; i++) {
+            String tok = args[i].toLowerCase();
+            switch (tok) {
+                case "-s":
+                    silent = true;
+                    break;
+                case "-q":
+                    quiet = true;
+                    break;
+                case "-r":
+                    // 消耗后续词直到遇到下一个已知 flag 或末尾
+                    reason = new StringBuilder();
+                    for (int j = i + 1; j < args.length; j++) {
+                        if (KNOWN_FLAGS.contains(args[j].toLowerCase())) {
+                            i = j - 1; // 回退，让外层循环处理这个 flag
+                            break;
+                        }
+                        if (reason.length() > 0) reason.append(" ");
+                        reason.append(args[j]);
+                        i = j; // 推进外层索引
+                    }
+                    break;
+                default:
+                    pos.add(args[i]);
+            }
+        }
+
+        return new ParsedArgs(
+                pos.toArray(new String[0]),
+                silent,
+                quiet,
+                reason != null ? reason.toString().trim() : null
+        );
+    }
+
+    public static boolean onCommand(CSender sender, String commandName, String[] rawArgs) {
+        // 先解析 flag，得到纯位置参数
+        ParsedArgs parsed = parseArgs(rawArgs);
+        String[] args = parsed.positional;
+
         int commndlength = args.length;
         StringBuilder reasonmessages = null;
         if (sender.isOp() | sender.hasPermission("xconomy.admin.give")
                 | sender.hasPermission("xconomy.admin.take") | sender.hasPermission("xconomy.admin.set")) {
-            if (args.length >= 4) {
+            // -r flag 优先；没有 -r 时沿用旧的位置原因参数兼容逻辑
+            if (parsed.reason != null) {
+                reasonmessages = new StringBuilder(parsed.reason);
+            } else if (args.length >= 4) {
                 if (args.length == 4) {
                     reasonmessages = new StringBuilder(args[3]);
                 } else {
@@ -170,8 +244,6 @@ public class CommandBalance extends CommandCore{
                             return true;
                         }
 
-                        //Cache.refreshFromCache(targetUUID);
-
                         BigDecimal bal = pd.getBalance();
                         if (DataFormat.isMAX(bal.add(amount))) {
                             sendMessages(sender, PREFIX + translateColorCodes("over_maxnumber"));
@@ -182,28 +254,34 @@ public class CommandBalance extends CommandCore{
                         }
 
                         BigDecimal newbalance = DataCon.changeplayerdata("ADMIN_COMMAND", targetUUID, amount, true, com, reasonmessages);
-                        sendMessages(sender, PREFIX + translateColorCodes("money_give")
-                                .replace("%player%", realname)
-                                .replace("%amount%", amountFormatted));
 
-                        if (checkMessage("money_give_receive") | commndlength == 4) {
-
-                            String message = PREFIX + translateColorCodes("money_give_receive")
+                        // -q：后台静默，执行者也不收到确认消息
+                        if (!parsed.quiet) {
+                            sendMessages(sender, PREFIX + translateColorCodes("money_give")
                                     .replace("%player%", realname)
-                                    .replace("%amount%", amountFormatted)
-                                    .replace("%balance%", DataFormat.shown(newbalance));
+                                    .replace("%amount%", amountFormatted));
+                        }
 
-                            if (commndlength == 4) {
+                        // -s 或 -q：不给目标玩家发任何消息
+                        if (!parsed.silent && !parsed.quiet) {
+                            String message;
+                            if (reasonmessages != null && reasonmessages.length() > 0) {
+                                // 有原因：发原因消息（-r 指定的或位置参数原因）
                                 message = PREFIX + reasonmessages;
+                            } else if (checkMessage("money_give_receive")) {
+                                message = PREFIX + translateColorCodes("money_give_receive")
+                                        .replace("%player%", realname)
+                                        .replace("%amount%", amountFormatted)
+                                        .replace("%balance%", DataFormat.shown(newbalance));
+                            } else {
+                                break;
                             }
 
                             if (!target.isOnline()) {
                                 broadcastSendMessage(false, pd, message);
-                                return true;
+                            } else {
+                                target.sendMessage(message);
                             }
-
-                            target.sendMessage(message);
-
                         }
                         break;
                     }
@@ -219,38 +297,40 @@ public class CommandBalance extends CommandCore{
                             return true;
                         }
 
-                        //Cache.refreshFromCache(targetUUID);
                         BigDecimal bal = pd.getBalance();
                         if (bal.compareTo(amount) < 0) {
                             sendMessages(sender, PREFIX + translateColorCodes("money_take_fail")
                                     .replace("%player%", realname)
                                     .replace("%amount%", amountFormatted));
-
                             return true;
                         }
 
                         BigDecimal newbalance = DataCon.changeplayerdata("ADMIN_COMMAND", targetUUID, amount, false, com, reasonmessages);
-                        sendMessages(sender, PREFIX + translateColorCodes("money_take")
-                                .replace("%player%", realname)
-                                .replace("%amount%", amountFormatted));
 
-                        if (checkMessage("money_take_receive") | commndlength == 4) {
-                            String mess = PREFIX + translateColorCodes("money_take_receive")
+                        if (!parsed.quiet) {
+                            sendMessages(sender, PREFIX + translateColorCodes("money_take")
                                     .replace("%player%", realname)
-                                    .replace("%amount%", amountFormatted)
-                                    .replace("%balance%", DataFormat.shown(newbalance));
+                                    .replace("%amount%", amountFormatted));
+                        }
 
-                            if (commndlength == 4) {
+                        if (!parsed.silent && !parsed.quiet) {
+                            String mess;
+                            if (reasonmessages != null && reasonmessages.length() > 0) {
                                 mess = PREFIX + reasonmessages;
+                            } else if (checkMessage("money_take_receive")) {
+                                mess = PREFIX + translateColorCodes("money_take_receive")
+                                        .replace("%player%", realname)
+                                        .replace("%amount%", amountFormatted)
+                                        .replace("%balance%", DataFormat.shown(newbalance));
+                            } else {
+                                break;
                             }
 
                             if (!target.isOnline()) {
                                 broadcastSendMessage(false, pd, mess);
-                                return true;
+                            } else {
+                                target.sendMessage(mess);
                             }
-
-                            target.sendMessage(mess);
-
                         }
                         break;
                     }
@@ -262,27 +342,31 @@ public class CommandBalance extends CommandCore{
                         }
 
                         BigDecimal newbalance = DataCon.changeplayerdata("ADMIN_COMMAND", targetUUID, amount, null, com, reasonmessages);
-                        sendMessages(sender, PREFIX + translateColorCodes("money_set")
-                                .replace("%player%", realname)
-                                .replace("%amount%", amountFormatted));
 
-                        if (checkMessage("money_set_receive") | commndlength == 4) {
-                            String mess = PREFIX + translateColorCodes("money_set_receive")
+                        if (!parsed.quiet) {
+                            sendMessages(sender, PREFIX + translateColorCodes("money_set")
                                     .replace("%player%", realname)
-                                    .replace("%amount%", amountFormatted)
-                                    .replace("%balance%", DataFormat.shown(newbalance));
+                                    .replace("%amount%", amountFormatted));
+                        }
 
-                            if (commndlength == 4) {
+                        if (!parsed.silent && !parsed.quiet) {
+                            String mess;
+                            if (reasonmessages != null && reasonmessages.length() > 0) {
                                 mess = PREFIX + reasonmessages;
+                            } else if (checkMessage("money_set_receive")) {
+                                mess = PREFIX + translateColorCodes("money_set_receive")
+                                        .replace("%player%", realname)
+                                        .replace("%amount%", amountFormatted)
+                                        .replace("%balance%", DataFormat.shown(newbalance));
+                            } else {
+                                break;
                             }
 
                             if (!target.isOnline()) {
                                 broadcastSendMessage(false, pd, mess);
-                                return true;
+                            } else {
+                                target.sendMessage(mess);
                             }
-
-                            target.sendMessage(mess);
-
                         }
                         break;
                     }
