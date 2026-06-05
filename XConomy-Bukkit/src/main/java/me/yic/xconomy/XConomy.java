@@ -257,15 +257,18 @@ public class XConomy extends JavaPlugin {
         if (name.equals("paypermission")) {
             cmd.setPermission("xconomy.admin.permission");
         }
-        org.bukkit.command.PluginCommand pc = Bukkit.getPluginCommand(name);
-        if (pc != null) {
-            pc.setExecutor(new Commands());
-            pc.setTabCompleter(new TabList());
-            if (name.equals("paypermission")) {
-                pc.setPermission("xconomy.admin.permission");
+        commandMap.register(name, "xconomy", cmd);
+        try {
+            org.bukkit.command.PluginCommand pc = Bukkit.getPluginCommand(name);
+            if (pc != null) {
+                pc.setExecutor(new Commands());
+                pc.setTabCompleter(new TabList());
+                if (name.equals("paypermission")) {
+                    pc.setPermission("xconomy.admin.permission");
+                }
             }
-        } else {
-            commandMap.register(name, "xconomy", cmd);
+        } catch (Exception ignored) {
+            // PluginCommand 路径失败不影响 CommandMap 已注册的命令
         }
     }
 

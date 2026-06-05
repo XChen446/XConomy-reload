@@ -24,6 +24,7 @@ import me.yic.xconomy.adapter.comp.CSender;
 import me.yic.xconomy.data.DataCon;
 import me.yic.xconomy.data.DataFormat;
 import me.yic.xconomy.data.syncdata.PlayerData;
+import me.yic.xconomy.data.tracking.TrackPageCache;
 import me.yic.xconomy.data.tracking.TransactionCleanup;
 import me.yic.xconomy.data.tracking.TransactionQuery;
 import me.yic.xconomy.data.tracking.TransactionRecord;
@@ -146,6 +147,8 @@ public class CommandTrack extends CommandCore {
 
         AdapterManager.runTaskAsynchronously(() -> {
             displayTransactionRecords(sender, finalUUID, finalPlayerName, finalTrackType, finalPage);
+            // 刷新页数缓存，让下次 tab 补全拿到最新值
+            TrackPageCache.refresh(finalUUID, finalTrackType);
         });
 
         return true;

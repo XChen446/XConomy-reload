@@ -18,10 +18,15 @@
  */
 package me.yic.xconomy.listeners;
 
+import me.yic.xconomy.XConomyLoad;
+import me.yic.xconomy.data.DataCon;
+import me.yic.xconomy.data.syncdata.PlayerData;
+import me.yic.xconomy.data.tracking.TrackPageCache;
 import me.yic.xconomy.utils.TabListCon;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 public class TabList implements TabCompleter {
 
@@ -47,7 +53,64 @@ public class TabList implements TabCompleter {
                         COMMANDS_xc.add("reload");
                         COMMANDS_xc.add("deldata");
                     }
+                    if (XConomyLoad.Config.TRACKING_ENABLE) {
+                        COMMANDS_xc.add("track");
+                    }
                     StringUtil.copyPartialMatches(args[0], COMMANDS_xc, completions);
+
+                } else if (args.length >= 2 && args[0].equalsIgnoreCase("track")
+                        && XConomyLoad.Config.TRACKING_ENABLE) {
+
+                    if (args.length == 2) {
+                        // /xconomy track <?>
+                        List<String> TRACK_SUB = new ArrayList<>();
+                        TRACK_SUB.add("income");
+                        TRACK_SUB.add("expense");
+                        if (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.track.other")) {
+                            TRACK_SUB.addAll(TabListCon.get_Tab_PlayerList());
+                        }
+                        if (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.track.cleanup")) {
+                            TRACK_SUB.add("cleanup");
+                        }
+                        StringUtil.copyPartialMatches(args[1], TRACK_SUB, completions);
+
+                    } else if (args.length == 3) {
+                        String sub = args[1].toLowerCase();
+                        if (sub.equals("income") || sub.equals("expense")) {
+                            // /xconomy track income/expense <页码>
+                            if (commandSender instanceof Player) {
+                                UUID selfUUID = ((Player) commandSender).getUniqueId();
+                                int maxPage = TrackPageCache.getMaxPage(selfUUID, sub);
+                                List<String> pages = buildPageList(maxPage);
+                                StringUtil.copyPartialMatches(args[2], pages, completions);
+                            }
+                        } else if (sub.equals("cleanup")) {
+                            // /xconomy track cleanup <天数>，提示常用值
+                            StringUtil.copyPartialMatches(args[2],
+                                    java.util.Arrays.asList("7", "30", "60", "90", "180", "365"), completions);
+                        } else {
+                            // /xconomy track <玩家名> <income|expense>
+                            if (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.track.other")) {
+                                List<String> TRACK_TYPES = new ArrayList<>();
+                                TRACK_TYPES.add("income");
+                                TRACK_TYPES.add("expense");
+                                StringUtil.copyPartialMatches(args[2], TRACK_TYPES, completions);
+                            }
+                        }
+
+                    } else if (args.length == 4) {
+                        // /xconomy track <玩家名> income/expense <页码>
+                        String trackType = args[2].toLowerCase();
+                        if ((trackType.equals("income") || trackType.equals("expense"))
+                                && (commandSender.isOp() || commandSender.hasPermission("xconomy.admin.track.other"))) {
+                            PlayerData pd = DataCon.getPlayerData(args[1]);
+                            if (pd != null) {
+                                int maxPage = TrackPageCache.getMaxPage(pd.getUniqueId(), trackType);
+                                List<String> pages = buildPageList(maxPage);
+                                StringUtil.copyPartialMatches(args[3], pages, completions);
+                            }
+                        }
+                    }
                 }
                 Collections.sort(completions);
                 break;
@@ -152,5 +215,14 @@ public class TabList implements TabCompleter {
             }
         }
         return completions;
+    }
+
+    /** 生成 1..maxPage 的页码字符串列表 */
+    private static List<String> buildPageList(int maxPage) {
+        List<String> pages = new ArrayList<>();
+        for (int i = 1; i <= maxPage; i++) {
+            pages.add(String.valueOf(i));
+        }
+        return pages;
     }
 }

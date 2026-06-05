@@ -14,33 +14,6 @@ libraries:
   - redis.clients:jedis:4.3.1
 
 
-commands:
-  xconomy:
-    usage: /<command>
-    description: XConomy.
-    aliases: [ xc ]
-  money:
-    usage: /<command>
-    description: XConomy.
-  balance:
-    usage: /<command>
-    description: XConomy.
-    aliases: [ bal ]
-  balancetop:
-    usage: /<command>
-    description: XConomy.
-    aliases: [ baltop ]
-  pay:
-    usage: /<command>
-    description: XConomy.
-  paytoggle:
-    usage: /<command>
-    description: XConomy.
-  paypermission:
-    usage: /<command>
-    description: XConomy.
-    aliases: [ payperm ]
-
 permissions:
   xconomy.user.balance:
     default: true
