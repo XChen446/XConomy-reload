@@ -224,6 +224,24 @@ public class XConomy extends JavaPlugin {
         DataBaseConfig.config = new CConfig(YamlConfiguration.loadConfiguration(file));
     }
 
+    public void reloadConfigs() {
+        // 重新加载 Bukkit 配置文件
+        reloadConfig();
+        
+        // 重新加载配置对象
+        File config = new File(this.getDataFolder(), "config.yml");
+        DefaultConfig.config = new CConfig(config);
+        
+        File file = new File(XConomy.getInstance().getDataFolder(), "database.yml");
+        DataBaseConfig.config = new CConfig(YamlConfiguration.loadConfiguration(file));
+        
+        // 重新加载 XConomy 配置
+        XConomyLoad.LoadConfig();
+        
+        // 记录重载成功
+        logger(null, 0, "Configuration reloaded successfully");
+    }
+
 
     @SuppressWarnings("ConstantConditions")
     private static boolean checkVaultPE() {

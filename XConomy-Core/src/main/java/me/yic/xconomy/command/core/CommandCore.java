@@ -38,8 +38,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class CommandCore {
 
@@ -50,9 +48,14 @@ public class CommandCore {
             case "xconomy": {
                 if (sender.isOp()) {
                     if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-                        MessagesManager.loadlangmess();
+                        // 通过适配器重新加载配置文件和所有配置
+                        // 这会调用 LoadConfig()，里面已经包含了 loadlangmess() 和 DataFormat.load()
+                        AdapterManager.PLUGIN.reloadPluginConfigs();
+                        
+                        // 重新加载 PREFIX
                         PREFIX = translateColorCodes("prefix");
-                        sendMessages(sender, PREFIX + MessagesManager.systemMessage("§amessage.yml重载成功"));
+                        
+                        sendMessages(sender, PREFIX + "§a配置文件和message.yml重载成功");
                         return true;
                     }
                     if (args.length == 2 && args[0].equalsIgnoreCase("deldata")) {
@@ -140,30 +143,12 @@ public class CommandCore {
         }
 
         BigDecimal value;
-        if (DataFormat.isint){
-            try {
-                Integer.parseInt(s);
-                value = new BigDecimal(s);
-            } catch (NumberFormatException ignored) {
-                return false;
-            }
-        }else {
-            try {
-                Double.parseDouble(s);
-                Pattern pattern = Pattern.compile("\\.\\d+");
-                Matcher matcher = pattern.matcher(s);
-
-                if (matcher.find()) {
-                    String decimalPart = matcher.group();
-                    int decimalPlaces = decimalPart.length() - 1;
-                    if (decimalPlaces > 2){
-                        return false;
-                    }
-                }
-                value = new BigDecimal(s);
-            } catch (NumberFormatException ignored) {
-                return false;
-            }
+        try {
+            // 直接尝试解析为BigDecimal，不再限制小数位数
+            // 后续会通过DataFormat.formatString()自动按配置取整
+            value = new BigDecimal(s);
+        } catch (NumberFormatException ignored) {
+            return false;
         }
 
         if (value.compareTo(BigDecimal.ZERO) > 0) {

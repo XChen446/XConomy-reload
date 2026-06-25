@@ -31,13 +31,14 @@ import java.text.DecimalFormatSymbols;
 public class DataFormat {
 
     public static boolean isint = false;
+    public static int decimalPlaces = 2;  // 可配置的小数位数
     public static DecimalFormat decimalFormat;
     public static DecimalFormat decimalFormatX;
     public static BigDecimal maxNumber;
     public static RoundingMode roundingmode = RoundingMode.DOWN;
-    final static String displayformat = XConomyLoad.Config.DISPLAY_FORMAT;
-    final static String pluralname = XConomyLoad.Config.PLURAL_NAME;
-    final static String singularname = XConomyLoad.Config.SINGULAR_NAME;
+    public static String displayformat;
+    public static String pluralname;
+    public static String singularname;
 
 
 
@@ -46,7 +47,7 @@ public class DataFormat {
         if (isint) {
             return bigDecimal.setScale(0, roundingmode);
         } else {
-            return bigDecimal.setScale(2, roundingmode);
+            return bigDecimal.setScale(decimalPlaces, roundingmode);
         }
     }
 
@@ -55,7 +56,7 @@ public class DataFormat {
         if (isint) {
             return bigDecimal.setScale(0, roundingmode);
         } else {
-            return bigDecimal.setScale(2, roundingmode);
+            return bigDecimal.setScale(decimalPlaces, roundingmode);
         }
     }
 
@@ -63,7 +64,7 @@ public class DataFormat {
         if (isint) {
             return am.setScale(0, roundingmode);
         } else {
-            return am.setScale(2, roundingmode);
+            return am.setScale(decimalPlaces, roundingmode);
         }
     }
 
@@ -105,19 +106,26 @@ public class DataFormat {
     public static void load() {
         maxNumber = setmaxnumber();
         isint = XConomyLoad.Config.INTEGER_BAL;
+        decimalPlaces = XConomyLoad.Config.DECIMAL_PLACES;
         String gpoint = XConomyLoad.Config.THOUSANDS_SEPARATOR;
+        
+        // 更新货币名称和显示格式
+        displayformat = XConomyLoad.Config.DISPLAY_FORMAT;
+        pluralname = XConomyLoad.Config.PLURAL_NAME;
+        singularname = XConomyLoad.Config.SINGULAR_NAME;
+        
         decimalFormat = new DecimalFormat();
         decimalFormatX = new DecimalFormat();
 
-        decimalFormatX.setMinimumFractionDigits(2);
-        decimalFormatX.setMaximumFractionDigits(2);
+        decimalFormatX.setMinimumFractionDigits(decimalPlaces);
+        decimalFormatX.setMaximumFractionDigits(decimalPlaces);
 
         if (isint) {
             decimalFormat.setMinimumFractionDigits(0);
             decimalFormat.setMaximumFractionDigits(0);
         }else{
-            decimalFormat.setMinimumFractionDigits(2);
-            decimalFormat.setMaximumFractionDigits(2);
+            decimalFormat.setMinimumFractionDigits(decimalPlaces);
+            decimalFormat.setMaximumFractionDigits(decimalPlaces);
         }
 
         if (XConomyLoad.Config.ROUNDING_MODE == 1){

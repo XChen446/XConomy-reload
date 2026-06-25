@@ -35,4 +35,6 @@ public interface iPlugin {
     void unregisterIncomingPluginChannel(String channel, String classname);
 
     void unregisterOutgoingPluginChannel(String channel);
+    
+    void reloadPluginConfigs();
 }

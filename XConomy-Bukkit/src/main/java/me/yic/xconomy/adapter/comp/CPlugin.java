@@ -117,4 +117,9 @@ public class CPlugin implements iPlugin {
     public void unregisterOutgoingPluginChannel(String channel) {
         Bukkit.getServer().getMessenger().unregisterOutgoingPluginChannel(XConomy.getInstance(), channel);
     }
+
+    @Override
+    public void reloadPluginConfigs() {
+        XConomy.getInstance().reloadConfigs();
+    }
 }

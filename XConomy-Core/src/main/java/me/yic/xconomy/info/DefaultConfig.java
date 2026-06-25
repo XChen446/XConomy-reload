@@ -63,6 +63,7 @@ public class DefaultConfig {
     public String SINGULAR_NAME = config.getString("Currency.singular-name");
     public String PLURAL_NAME = config.getString("Currency.plural-name");
     public boolean INTEGER_BAL = config.getBoolean("Currency.integer-bal");
+    public int DECIMAL_PLACES = getDecimalPlaces();
     public int ROUNDING_MODE = config.getInt("Currency.rounding-mode");
     public String THOUSANDS_SEPARATOR = config.getString("Currency.thousands-separator");
     public String DISPLAY_FORMAT = config.getString("Currency.display-format");
@@ -94,6 +95,16 @@ public class DefaultConfig {
         return Math.min(config.getInt("Settings.ranking-size"), 100);
     }
 
+    private int getDecimalPlaces() {
+        int places = config.getInt("Currency.decimal-places");
+        // 限制小数位数在 0-6 之间
+        if (places < 0) {
+            return 2; // 默认2位小数
+        } else if (places > 6) {
+            return 6; // 最多6位小数
+        }
+        return places;
+    }
 
     private void setUUIDMode() {
         if (config.getString("UUID-mode").equalsIgnoreCase("Online")) {

@@ -345,6 +345,18 @@ public class XConomy {
         }
     }
 
+    public void reloadConfigs() {
+        // 重新加载配置文件
+        configload();
+        DataBaseload();
+        
+        // 重新加载 XConomy 配置
+        XConomyLoad.LoadConfig();
+        
+        // 记录重载成功
+        logger(null, 0, "Configuration reloaded successfully");
+    }
+
 
     public void logger(String tag, int type, String message) {
         String mess = message;

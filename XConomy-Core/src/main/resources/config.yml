@@ -83,6 +83,9 @@ Currency:
   plural-name: dollars
   #Is the balance an integer
   integer-bal: false
+  #Number of decimal places to display (0-6, default: 2)
+  #This setting is ignored when integer-bal is true
+  decimal-places: 2
   #Method for rounding off excess digits in the amount
   #0 indicates rounding down, 1 indicates rounding up
   rounding-mode: 0

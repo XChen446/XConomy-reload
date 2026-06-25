@@ -44,6 +44,9 @@ public class XConomyLoad{
 
         DConfig.Initialization();
         Config.setSyncData();
+        
+        // 重新加载数据格式配置（包括货币单位和小数位数）
+        DataFormat.load();
     }
 
     public static void Initial(){

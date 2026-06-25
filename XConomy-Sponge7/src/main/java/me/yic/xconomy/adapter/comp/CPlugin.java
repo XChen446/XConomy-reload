@@ -130,4 +130,9 @@ public class CPlugin implements iPlugin {
     public void unregisterOutgoingPluginChannel(String channel) {
 
     }
+
+    @Override
+    public void reloadPluginConfigs() {
+        XConomy.getInstance().reloadConfigs();
+    }
 }
