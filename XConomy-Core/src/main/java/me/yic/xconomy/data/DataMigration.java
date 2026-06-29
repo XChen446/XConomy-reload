@@ -45,9 +45,9 @@ public class DataMigration {
         
         callback.onStart(currentTypeName, targetType);
         
-        // 检查是否是相同类型
-        if (currentTypeName.equalsIgnoreCase(targetType)) {
-            callback.onError("源数据库和目标数据库类型相同");
+        // 检查是否是相同类型（MySQL 和 MariaDB 视为相同类型）
+        if (isSameType(currentType, targetType)) {
+            callback.onError("源数据库和目标数据库类型相同，无法进行迁移");
             return false;
         }
         
@@ -98,6 +98,28 @@ public class DataMigration {
             case 3: return "MariaDB";
             default: return "Unknown";
         }
+    }
+    
+    /**
+     * 检查当前数据库类型和目标类型是否相同
+     * MySQL 和 MariaDB 被视为相同类型
+     * @param currentType 当前数据库类型编号 (1=SQLite, 2=MySQL, 3=MariaDB)
+     * @param targetType 目标数据库类型字符串
+     * @return 是否为相同类型
+     */
+    private static boolean isSameType(int currentType, String targetType) {
+        // SQLite 到 SQLite
+        if (currentType == 1 && targetType.equalsIgnoreCase("SQLite")) {
+            return true;
+        }
+        
+        // MySQL/MariaDB 到 MySQL/MariaDB (它们互相兼容，视为相同类型)
+        if ((currentType == 2 || currentType == 3) && 
+            (targetType.equalsIgnoreCase("MySQL") || targetType.equalsIgnoreCase("MariaDB"))) {
+            return true;
+        }
+        
+        return false;
     }
     
     private static Map<UUID, PlayerBalance> readAllData(int sourceType) throws SQLException {
